@@ -9,48 +9,39 @@ import unicodedata
 # --- CONFIGURAÇÕES GERAIS ---
 ANO_CAMPANHA = 2025
 
-# --- FUNÇÕES DE LIMPEZA E TEXTO (BLINDAGEM) ---
+# --- FUNÇÕES DE LIMPEZA E TEXTO ---
 
 def limpar_texto_agressivo(texto):
-    """
-    Remove qualquer caractere que não seja seguro para ISO-8859-1.
-    Converte caracteres 'ricos' do Excel em caracteres simples.
-    """
-    if not texto:
-        return ""
-    
+    if not texto: return ""
     texto_str = str(texto).strip()
-    
-    # Mapa de substituição para caracteres problemáticos comuns do Excel
-    substituicoes = {
-        '\xa0': ' ',  # Espaço não separável -> Espaço normal
-        '–': '-',     # Traço médio -> Hífen
-        '—': '-',     # Traço longo -> Hífen
-        '"': '"',     # Aspas curvas -> Aspas retas
-        '"': '"',
-        '“': '"',
-        '”': '"',
-        '‘': "'",     # Aspas simples curvas -> Aspas retas
-        '’': "'",
-        '…': '...'
-    }
-    
-    for original, novo in substituicoes.items():
-        texto_str = texto_str.replace(original, novo)
-    
-    # Normalização Unicode para garantir que Á seja Á (composto)
+    substituicoes = {'\xa0': ' ', '–': '-', '—': '-', '"': '"', '"': '"', '“': '"', '”': '"', '‘': "'", '’': "'", '…': '...'}
+    for original, novo in substituicoes.items(): texto_str = texto_str.replace(original, novo)
     texto_norm = unicodedata.normalize('NFC', texto_str)
-    
-    # Remove caracteres de controle (exceto tab e enter)
     return "".join(ch for ch in texto_norm if unicodedata.category(ch)[0] != "C" or ch in ['\n', '\t', '\r'])
 
-# --- FUNÇÕES DE LÓGICA DE NEGÓCIO ---
+# --- LÓGICA DE NEGÓCIO ---
+
+def verificar_tipo_conteudo(df):
+    """
+    Varre as primeiras linhas para identificar se é Rádio ou TV pelo conteúdo.
+    Retorna: 'RADIO', 'TV' ou None
+    """
+    # Converte as primeiras 20 linhas para uma string gigante para busca rápida
+    try:
+        sample = df.head(20).astype(str).to_string().upper()
+        if "PROGRAMAÇÃO - RÁDIO" in sample or "PROGRAMAÇÃO - RADIO" in sample:
+            return 'RADIO'
+        if "PROGRAMAÇÃO - TELEVISÃO" in sample or "PROGRAMAÇÃO - TV" in sample or "PROGRAMAÇÃO - INTERNET" in sample:
+            return 'TV'
+    except: pass
+    return None
 
 def encontrar_inicio_triplo(df):
     for i in range(len(df) - 2):
         l1 = " ".join([str(x).upper() for x in df.iloc[i].values if pd.notna(x)])
         
         tem_id = "ID SECOM" in l1 or "ID. SECOM" in l1
+        # Adiciona 'NOME FANTASIA' para pegar Rádio
         tem_campo_chave = "PROGRAMA" in l1 or "REDE" in l1 or "VEÍCULO" in l1 or "NOME FANTASIA" in l1
         
         if tem_id and tem_campo_chave:
@@ -81,31 +72,38 @@ def mapear_colunas_triplas(df, linha_inicio):
         if "ID SECOM" in r1 or "ID. SECOM" in r1: mapa['ID_VEICULO'] = idx
         if "REDE" in r1 or "NOME FANTASIA" in r1 or "VEÍCULO" in r1: 
              if 'NOME' not in mapa: mapa['NOME'] = idx
+        
+        # Ajuste para Rádio que às vezes não tem coluna PROGRAMA explícita
         if "PROGRAMA" in r1 and "HORÁRIO" not in r1: mapa['PROGRAMA'] = idx
+        
         if "FORMATO" in r1 or "PEÇA" in r1: mapa['FORMATO'] = idx
         
+        # Inserções
         termos_ins = ["INS", "TT. INS", "QTD", "TOTAL INSERÇÕES", "TT.INS", "TT INS"]
         eh_coluna_ins = any(t in r1.split() or t in r2.split() for t in termos_ins)
         nao_eh_valor = "VALOR" not in r1 and "CUSTO" not in r1 and "VALOR" not in r2
         if eh_coluna_ins and nao_eh_valor: mapa['INSERCOES'] = idx
 
+        # Horários
         if "HORÁRIO" in r1 or "FAIXA HORÁRIA" in r1 or "FAIXA" in r1:
             if "INICIAL" in r2 or "INÍCIO" in r2: mapa['HORA_INI'] = idx
             if "FINAL" in r2 or "TÉRMINO" in r2: mapa['HORA_FIM'] = idx
         
+        # Valores
         if ("VALOR" in r1 or "CUSTO" in r1) and "TABELA" in r1:
             if "UNITÁRIO" in r2 or "UNIT" in r2 or "30" in r2: 
                 mapa['VALOR_TABELA'] = idx
         if "UNITÁRIO" in r2 and 'VALOR_TABELA' not in mapa: mapa['VALOR_TABELA'] = idx
 
+        # Município
         if ("CÓD" in r1 or "COD" in r1) and ("MUN" in r1 or "IBGE" in r1): mapa['COD_MUNICIPIO'] = idx
 
+        # Grid Dias
         if r3.isdigit():
             dia = int(r3)
             if 1 <= dia <= 31:
                 ano = ANO_CAMPANHA
                 if mes_atual == 1: ano = ANO_CAMPANHA + 1
-                # --- CORREÇÃO AQUI: 'mes': mes_atual (antes estava 'mes': mes) ---
                 mapa['DIAS'].append({'idx': idx, 'dia': dia, 'mes': mes_atual, 'ano': ano})
 
     return mapa
@@ -115,10 +113,7 @@ def formatar_valor_br(valor):
     try:
         val_str = str(valor).replace('R$', '').replace(' ', '')
         if '.' in val_str and ',' in val_str: val_str = val_str.replace('.', '').replace(',', '.')
-        
-        # Arredonda para 2 casas antes de formatar para evitar lixo binário
         val_float = round(float(val_str), 2)
-        
         return f"{val_float:.14f}".replace('.', ',')
     except:
         return "0,00000000000000"
@@ -151,19 +146,15 @@ def processar_datas_grid(row, lista_dias):
             if pd.notna(val) and val_str not in ['', '-', 'nan', 'None', '0', '0.0']:
                 tem_insercao = True
         except: pass
-        
         if tem_insercao:
             datas_validas.append(datetime(info['ano'], info['mes'], info['dia']))
-            
     if not datas_validas: return "", ""
     datas_validas.sort()
     return formatar_data_obj(datas_validas[0]), formatar_data_obj(datas_validas[-1])
 
 def criar_tag(pai, nome, valor):
     elem = ET.SubElement(pai, nome)
-    # Limpeza agressiva antes de escrever no XML
-    texto_limpo = limpar_texto_agressivo(valor)
-    elem.text = texto_limpo
+    elem.text = limpar_texto_agressivo(valor)
 
 def gerar_conteudo_xml(tipo_midia, dados_consolidados):
     root = ET.Element("documento")
@@ -179,9 +170,7 @@ def gerar_conteudo_xml(tipo_midia, dados_consolidados):
         
         veiculacao = ET.SubElement(root, "veiculacao", id=str(id_counter))
         
-        # --- EXTRAÇÃO DE DADOS ---
         id_veiculo = str(int(float(id_veic_raw)))
-        
         data_ini, data_fim = processar_datas_grid(row, mapa['DIAS'])
         if not data_ini: data_ini = ""; data_fim = ""
 
@@ -218,7 +207,6 @@ def gerar_conteudo_xml(tipo_midia, dados_consolidados):
                     cod_municipio = val_mun
             except: pass
 
-        # --- GERAÇÃO DAS TAGS ---
         criar_tag(veiculacao, "IdentificadorVeiculacaoSistemaOrigem", id_counter)
         criar_tag(veiculacao, "TipoInformacao", "Planejado")
         criar_tag(veiculacao, "IdentificadorVeiculacao", "")
@@ -272,26 +260,18 @@ def gerar_conteudo_xml(tipo_midia, dados_consolidados):
 
     ET.indent(root, space="  ", level=0)
     
-    # Geração Segura do XML
-    # Usamos 'unicode' aqui para o Python gerar a string com acentos
     xml_str = ET.tostring(root, encoding='unicode', method='xml')
-    
     if not xml_str.startswith('<?xml'):
         header = '<?xml version="1.0" encoding="ISO-8859-1"?>\n'
         xml_str = header + xml_str
-
     xml_final_str = re.sub(r'<([a-zA-Z0-9_]+) />', r'<\1></\1>', xml_str)
-    
-    # TRUQUE DE MESTRE: Usamos 'xmlcharrefreplace'
-    # Se houver um caractere que o ISO-8859-1 não aguenta, ele vira código numérico (&#1234;)
-    # Isso impede o erro de '?' e garante que o XML seja importável.
     return xml_final_str.encode('ISO-8859-1', errors='xmlcharrefreplace')
 
-# --- INTERFACE STREAMLIT ---
+# --- INTERFACE ---
 
-st.set_page_config(page_title="Gerador XML V15", page_icon="🚀")
+st.set_page_config(page_title="Gerador XML V16", page_icon="📡")
 
-st.title("Gerador de XML - V15 (Corrigido)")
+st.title("Gerador de XML - V16 (Detecção Inteligente)")
 st.markdown("Arraste a planilha **MS - CAMPANHA...xlsx**.")
 
 uploaded_file = st.file_uploader("Upload da Planilha Excel", type=['xlsx'])
@@ -312,8 +292,15 @@ if uploaded_file is not None:
             linha_inicio = encontrar_inicio_triplo(df)
             
             if linha_inicio is not None:
-                eh_radio = "RADIO" in nome_aba.upper() or "RÁDIO" in nome_aba.upper()
-                eh_tv = "TV" in nome_aba.upper() or "TELEVISÃO" in nome_aba.upper() or "CNN" in nome_aba.upper() or "REDE VIDA" in nome_aba.upper() or "BANDNEWS" in nome_aba.upper()
+                # DETECÇÃO HÍBRIDA (Nome da aba OU Conteúdo da planilha)
+                tipo_detectado = verificar_tipo_conteudo(df)
+                
+                nome_upper = nome_aba.upper()
+                eh_radio_nome = "RADIO" in nome_upper or "RÁDIO" in nome_upper or "RD " in nome_upper or "RD" in nome_upper
+                eh_tv_nome = "TV" in nome_upper or "TELEVISÃO" in nome_upper or "CNN" in nome_upper or "REDE VIDA" in nome_upper
+                
+                eh_radio = (tipo_detectado == 'RADIO') or eh_radio_nome
+                eh_tv = (tipo_detectado == 'TV') or eh_tv_nome
                 
                 if eh_radio or eh_tv:
                     mapa_cols = mapear_colunas_triplas(df, linha_inicio)
@@ -337,7 +324,7 @@ if uploaded_file is not None:
             col1.download_button(
                 label="📻 Baixar XML Rádio",
                 data=xml_radio,
-                file_name="Radio_V15.xml",
+                file_name="Radio_V16.xml",
                 mime="application/xml"
             )
         else:
@@ -349,7 +336,7 @@ if uploaded_file is not None:
             col2.download_button(
                 label="📺 Baixar XML TV",
                 data=xml_tv,
-                file_name="TV_V15.xml",
+                file_name="TV_V16.xml",
                 mime="application/xml"
             )
         else:

@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  app-xml:
+    build: .
+    container_name: gerador-xml-app
+    restart: always
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app  # Isso permite editar arquivos sem recriar o container (bom para dev)

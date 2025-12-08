@@ -6,6 +6,12 @@ services:
     container_name: gerador-xml-app
     restart: always
     ports:
-      - "8501:8501"
+      - "3005:8501" # Porta 3005 no servidor -> 8501 no container
     volumes:
-      - .:/app  # Isso permite editar arquivos sem recriar o container (bom para dev)
+      - .:/app
+    networks:
+      - npm_default
+
+networks:
+  npm_default:
+    external: true

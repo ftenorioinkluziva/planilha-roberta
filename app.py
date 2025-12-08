@@ -19,7 +19,7 @@ def limpar_texto_agressivo(texto):
     texto_norm = unicodedata.normalize('NFC', texto_str)
     return "".join(ch for ch in texto_norm if unicodedata.category(ch)[0] != "C" or ch in ['\n', '\t', '\r'])
 
-# --- FUNÇÕES DE LÓGICA ---
+# --- FUNÇÕES DE LÓGICA DE NEGÓCIO ---
 
 def encontrar_inicio_triplo(df):
     for i in range(len(df) - 2):
@@ -64,23 +64,35 @@ def mapear_colunas_triplas(df, linha_inicio):
              if nao_eh_valor: eh_coluna_ins = True
         if eh_coluna_ins and nao_eh_valor: mapa['INSERCOES'] = idx
 
-        # --- NOVA LÓGICA: DESCONTO (% DESC. PUP.) ---
-        # Procura por 'DESC', 'PUP' ou 'NEG' nas linhas de cabeçalho
-        termos_desc = ["DESC", "PUP", "% NEG", "DESCONTO"]
-        if any(t in r1 for t in termos_desc) or any(t in r2 for t in termos_desc):
-             if "%" in r1 or "%" in r2 or "DESC" in r1 or "DESC" in r2:
-                 mapa['DESCONTO'] = idx
+        # --- CORREÇÃO V19: DESCONTO (% DESC. PUP.) ---
+        # Prioriza colunas que tenham "DESC" explícito
+        # Evita a coluna "REAPL" que também tem "PUP"
+        
+        tem_desc = "DESC" in r1 or "DESC" in r2 or "DESCONTO" in r1
+        tem_pup = "PUP" in r1 or "PUP" in r2
+        tem_reapl = "REAPL" in r1 or "REAPL" in r2 # O inimigo!
 
+        # Regra 1: Se tem "DESC", é Desconto (ganha de tudo)
+        if tem_desc and not tem_reapl:
+             mapa['DESCONTO'] = idx
+        # Regra 2: Se tem "PUP" mas NÃO tem "REAPL", é Desconto (caso o nome seja só % PUP)
+        elif tem_pup and not tem_reapl and 'DESCONTO' not in mapa:
+             mapa['DESCONTO'] = idx
+
+        # Horários
         if "HORÁRIO" in r1 or "FAIXA HORÁRIA" in r1 or "FAIXA" in r1:
             if "INICIAL" in r2 or "INÍCIO" in r2: mapa['HORA_INI'] = idx
             if "FINAL" in r2 or "TÉRMINO" in r2: mapa['HORA_FIM'] = idx
         
+        # Valores
         if ("VALOR" in r1 or "CUSTO" in r1) and "TABELA" in r1:
             if "UNITÁRIO" in r2 or "UNIT" in r2 or "30" in r2: mapa['VALOR_TABELA'] = idx
         if "UNITÁRIO" in r2 and 'VALOR_TABELA' not in mapa: mapa['VALOR_TABELA'] = idx
 
+        # Município
         if ("CÓD" in r1 or "COD" in r1) and ("MUN" in r1 or "IBGE" in r1): mapa['COD_MUNICIPIO'] = idx
 
+        # Grid Dias
         if r3.isdigit():
             dia = int(r3)
             if 1 <= dia <= 31:
@@ -99,7 +111,8 @@ def formatar_valor_br(valor, eh_porcentagem=False):
         val_float = float(val_str)
         
         # Se for porcentagem e vier em decimal (ex: 0.75), converte para 75.00
-        if eh_porcentagem and val_float < 1.01 and val_float > 0:
+        # Aumentei a tolerância para pegar casos como 1.0 (100%)
+        if eh_porcentagem and val_float <= 1.0 and val_float > 0:
             val_float = val_float * 100
             
         val_float = round(val_float, 2)
@@ -185,12 +198,11 @@ def gerar_conteudo_xml(tipo_midia, dados_consolidados):
         if 'VALOR_TABELA' in mapa:
             valor = formatar_valor_br(row[mapa['VALOR_TABELA']])
             
-        # DESCONTO (Agora lido da coluna ou padrão)
         desconto = "0,00000000000000"
         if 'DESCONTO' in mapa:
             desconto = formatar_valor_br(row[mapa['DESCONTO']], eh_porcentagem=True)
         elif tipo_midia == 'TV':
-            desconto = "74,00000000000000" # Padrão TV se não achar coluna
+            desconto = "74,00000000000000"
             
         formato = "30"
         if 'FORMATO' in mapa:
@@ -230,7 +242,7 @@ def gerar_conteudo_xml(tipo_midia, dados_consolidados):
             criar_tag(veiculacao, "CustoDoFormato", valor)
             criar_tag(veiculacao, "Reaplicacao", "nao")
             criar_tag(veiculacao, "Bonificacao", "nao")
-            criar_tag(veiculacao, "DescontoNegociado", desconto) # Usa o valor capturado
+            criar_tag(veiculacao, "DescontoNegociado", desconto) 
             criar_tag(veiculacao, "QuantidadeDeInsercoes", insercoes)
             criar_tag(veiculacao, "TipoDeCompra", "ROTATIVO/INDETERMINADO")
 
@@ -267,9 +279,9 @@ def gerar_conteudo_xml(tipo_midia, dados_consolidados):
 
 # --- INTERFACE ---
 
-st.set_page_config(page_title="Gerador XML V18", page_icon="📡")
+st.set_page_config(page_title="Gerador XML V19", page_icon="📡")
 
-st.title("Gerador de XML - V18 (Desconto Corrigido)")
+st.title("Gerador de XML - V19 (Desc. Corrigido)")
 st.markdown("Arraste a planilha **MS - CAMPANHA...xlsx**.")
 
 uploaded_file = st.file_uploader("Upload da Planilha Excel", type=['xlsx'])
@@ -325,7 +337,7 @@ if uploaded_file is not None:
             col1.download_button(
                 label="📻 Baixar XML Rádio",
                 data=xml_radio,
-                file_name="Radio_V18.xml",
+                file_name="Radio_V19.xml",
                 mime="application/xml"
             )
         else:
@@ -337,7 +349,7 @@ if uploaded_file is not None:
             col2.download_button(
                 label="📺 Baixar XML TV",
                 data=xml_tv,
-                file_name="TV_V18.xml",
+                file_name="TV_V19.xml",
                 mime="application/xml"
             )
         else:

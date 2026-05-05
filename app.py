@@ -2,255 +2,523 @@ import streamlit as st
 import pandas as pd
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+from collections import OrderedDict
 import re
-import io
 import unicodedata
 
-# --- CONFIGURAÇÕES GERAIS ---
-ANO_CAMPANHA = 2025
+# =========================================================
+# GERADOR XML V20
+# - Mantém a ideia do V19, mas separa extração -> normalização -> agrupamento -> XML.
+# - Corrige desconto fixo de TV.
+# - Melhora detecção de Nome/Emissora.
+# - Calcula inserções pelo grid quando possível.
+# - Filtra linhas de total/observação/inválidas.
+# - Agrupa veiculações equivalentes, somando inserções e expandindo período.
+# =========================================================
 
-# --- FUNÇÕES DE LIMPEZA E TEXTO ---
+MESES = {
+    "JANEIRO": 1, "JAN": 1,
+    "FEVEREIRO": 2, "FEV": 2,
+    "MARÇO": 3, "MARCO": 3, "MAR": 3,
+    "ABRIL": 4, "ABR": 4,
+    "MAIO": 5, "MAI": 5,
+    "JUNHO": 6, "JUN": 6,
+    "JULHO": 7, "JUL": 7,
+    "AGOSTO": 8, "AGO": 8,
+    "SETEMBRO": 9, "SET": 9,
+    "OUTUBRO": 10, "OUT": 10,
+    "NOVEMBRO": 11, "NOV": 11,
+    "DEZEMBRO": 12, "DEZ": 12,
+}
+
+XML_EMPTY_VALUE = ""
+
+# -------------------------
+# Texto / normalização
+# -------------------------
 
 def limpar_texto_agressivo(texto):
-    if not texto: return ""
+    if texto is None or (isinstance(texto, float) and pd.isna(texto)):
+        return ""
     texto_str = str(texto).strip()
-    substituicoes = {'\xa0': ' ', '–': '-', '—': '-', '"': '"', '"': '"', '“': '"', '”': '"', '‘': "'", '’': "'", '…': '...'}
-    for original, novo in substituicoes.items(): texto_str = texto_str.replace(original, novo)
-    texto_norm = unicodedata.normalize('NFC', texto_str)
-    return "".join(ch for ch in texto_norm if unicodedata.category(ch)[0] != "C" or ch in ['\n', '\t', '\r'])
+    if texto_str.lower() in ["nan", "none"]:
+        return ""
 
-# --- FUNÇÕES DE LÓGICA DE NEGÓCIO ---
+    substituicoes = {
+        "\xa0": " ", "–": "-", "—": "-", "“": '"', "”": '"',
+        "‘": "'", "’": "'", "…": "..."
+    }
+    for original, novo in substituicoes.items():
+        texto_str = texto_str.replace(original, novo)
+
+    texto_norm = unicodedata.normalize("NFC", texto_str)
+    return "".join(
+        ch for ch in texto_norm
+        if unicodedata.category(ch)[0] != "C" or ch in ["\n", "\t", "\r"]
+    )
+
+
+def texto_upper(valor):
+    return limpar_texto_agressivo(valor).upper().strip()
+
+
+def texto_celula(row, idx, default=""):
+    if idx is None:
+        return default
+    try:
+        return limpar_texto_agressivo(row[idx])
+    except Exception:
+        return default
+
+
+def eh_vazio(valor):
+    if valor is None:
+        return True
+    if isinstance(valor, float) and pd.isna(valor):
+        return True
+    return str(valor).strip().lower() in ["", "nan", "none", "-", "0", "0.0"]
+
+
+def eh_linha_descartavel(row):
+    texto = " ".join(texto_upper(x) for x in row if not eh_vazio(x))
+    if not texto:
+        return True
+    termos_bloqueio = [
+        "TOTAL", "SUBTOTAL", "OBSERVA", "OBS.", "INVESTIMENTO",
+        "RESUMO", "PRAÇA", "PRACA", "FORMATO COMERCIAL"
+    ]
+    # Não descarta qualquer linha que contenha praça, apenas linhas que comecem/pareçam cabeçalho.
+    if texto.startswith(("TOTAL", "SUBTOTAL", "OBS", "INVESTIMENTO", "RESUMO")):
+        return True
+    return False
+
+# -------------------------
+# Conversões
+# -------------------------
+
+def numero_float(valor):
+    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+        return None
+    if isinstance(valor, (int, float)):
+        return float(valor)
+
+    s = str(valor).strip()
+    if s.lower() in ["", "nan", "none", "-"]:
+        return None
+    s = s.replace("R$", "").replace("%", "").replace(" ", "")
+
+    # BR: 1.234,56 -> 1234.56
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        s = s.replace(",", ".")
+
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+
+def formatar_valor_br(valor, eh_porcentagem=False, vazio_se_invalido=False):
+    val_float = numero_float(valor)
+    if val_float is None:
+        return "" if vazio_se_invalido else "0,00000000000000"
+
+    if eh_porcentagem and 0 < val_float <= 1:
+        val_float *= 100
+
+    val_float = round(val_float, 2)
+    return f"{val_float:.14f}".replace(".", ",")
+
+
+def formatar_horario(valor):
+    if eh_vazio(valor):
+        return ""
+    if hasattr(valor, "strftime"):
+        return valor.strftime("%H:%M")
+    if isinstance(valor, (float, int)):
+        # Excel guarda hora como fração do dia.
+        if 0 <= float(valor) < 1:
+            segundos = int(round(float(valor) * 24 * 3600))
+            segundos = segundos % (24 * 3600)
+            return (datetime(1900, 1, 1) + timedelta(seconds=segundos)).strftime("%H:%M")
+
+    s = str(valor).strip()
+    match = re.search(r"(\d{1,2})[:hH](\d{2})", s)
+    if match:
+        h = int(match.group(1))
+        m = int(match.group(2))
+        return f"{h:02d}:{m:02d}"
+    return ""
+
+
+def formatar_data_obj(dt):
+    return dt.strftime("%d/%m/%Y")
+
+
+def normalizar_id(valor):
+    val = numero_float(valor)
+    if val is None:
+        return ""
+    try:
+        return str(int(val))
+    except Exception:
+        return ""
+
+
+def normalizar_codigo_municipio(valor):
+    if eh_vazio(valor):
+        return ""
+    s = str(valor).strip().replace(".0", "")
+    s = re.sub(r"\D", "", s)
+    return s
+
+# -------------------------
+# Cabeçalhos / mapeamento
+# -------------------------
 
 def encontrar_inicio_triplo(df):
     for i in range(len(df) - 2):
-        l1 = " ".join([str(x).upper() for x in df.iloc[i].values if pd.notna(x)])
+        l1 = " ".join(texto_upper(x) for x in df.iloc[i].values if not eh_vazio(x))
         tem_id = "ID SECOM" in l1 or "ID. SECOM" in l1
-        tem_campo_chave = "PROGRAMA" in l1 or "REDE" in l1 or "VEÍCULO" in l1 or "NOME FANTASIA" in l1
-        if tem_id and tem_campo_chave: return i
+        tem_campo_chave = any(t in l1 for t in ["PROGRAMA", "REDE", "VEÍCULO", "VEICULO", "NOME FANTASIA", "EMISSORA"])
+        if tem_id and tem_campo_chave:
+            return i
     return None
 
-def mapear_colunas_triplas(df, linha_inicio):
-    row1 = df.iloc[linha_inicio].fillna('').astype(str).str.upper().str.strip()
-    row2 = df.iloc[linha_inicio + 1].fillna('').astype(str).str.upper().str.strip()
-    row3 = df.iloc[linha_inicio + 2].fillna('').astype(str).str.upper().str.strip()
-    
-    mapa = {'DIAS': []}
+
+def carregar_linhas_cabecalho(df, linha_inicio):
+    row1 = df.iloc[linha_inicio].fillna("").astype(str).map(texto_upper).tolist()
+    row2 = df.iloc[linha_inicio + 1].fillna("").astype(str).map(texto_upper).tolist()
+    row3 = df.iloc[linha_inicio + 2].fillna("").astype(str).map(texto_upper).tolist()
+    return row1, row2, row3
+
+
+def detectar_mes(texto):
+    t = texto_upper(texto)
+    for nome_mes, mes in MESES.items():
+        if nome_mes in t:
+            return mes
+    return None
+
+
+def mapear_colunas_triplas(df, linha_inicio, ano_campanha):
+    row1, row2, row3 = carregar_linhas_cabecalho(df, linha_inicio)
+    mapa = {"DIAS": [], "CANDIDATOS_NOME": []}
+
     last_r1 = ""
-    mes_atual = 12 
-    
+    mes_atual = None
+    ano_atual = ano_campanha
+
     for idx in range(len(row1)):
-        r1 = row1[idx]
-        if r1 == "" and last_r1 != "": r1 = last_r1 
-        else: last_r1 = r1  
-        
+        r1 = row1[idx] or last_r1
+        if row1[idx]:
+            last_r1 = row1[idx]
         r2 = row2[idx]
         r3 = row3[idx]
+        combinado = f"{r1} {r2} {r3}".strip()
 
-        if "DEZEMBRO" in r1: mes_atual = 12
-        elif "JANEIRO" in r1: mes_atual = 1
-        elif "NOVEMBRO" in r1: mes_atual = 11
+        mes_detectado = detectar_mes(r1) or detectar_mes(r2)
+        if mes_detectado:
+            mes_atual = mes_detectado
+            # Em campanhas que cruzam dez/jan, janeiro pertence ao ano seguinte.
+            ano_atual = ano_campanha + 1 if mes_atual == 1 and ano_campanha and mes_atual < 3 else ano_campanha
 
-        if "ID SECOM" in r1 or "ID. SECOM" in r1: mapa['ID_VEICULO'] = idx
-        if "REDE" in r1 or "NOME FANTASIA" in r1 or "VEÍCULO" in r1: 
-             if 'NOME' not in mapa: mapa['NOME'] = idx
-        if "PROGRAMA" in r1 and "HORÁRIO" not in r1: mapa['PROGRAMA'] = idx
-        if "FORMATO" in r1 or "PEÇA" in r1: mapa['FORMATO'] = idx
-        
-        # Inserções
-        termos_ins = ["TT. INS", "TT.INS", "TT INS", "INS.", "TOTAL INSERÇÕES", "QTD.", "QUANTIDADE"]
-        eh_coluna_ins = any(t in r1 or t in r2 for t in termos_ins)
-        nao_eh_valor = "VALOR" not in r1 and "CUSTO" not in r1 and "VALOR" not in r2
-        if "INS" in r1.split() or "INS" in r2.split(): 
-             if nao_eh_valor: eh_coluna_ins = True
-        if eh_coluna_ins and nao_eh_valor: mapa['INSERCOES'] = idx
+        if "ID SECOM" in combinado or "ID. SECOM" in combinado:
+            mapa["ID_VEICULO"] = idx
 
-        # --- CORREÇÃO V19: DESCONTO (% DESC. PUP.) ---
-        # Prioriza colunas que tenham "DESC" explícito
-        # Evita a coluna "REAPL" que também tem "PUP"
-        
-        tem_desc = "DESC" in r1 or "DESC" in r2 or "DESCONTO" in r1
-        tem_pup = "PUP" in r1 or "PUP" in r2
-        tem_reapl = "REAPL" in r1 or "REAPL" in r2 # O inimigo!
+        # Nome: guarda candidatos em ordem de qualidade; no fim escolhe o melhor.
+        if any(t in combinado for t in ["NOME FANTASIA", "EMISSORA", "VEÍCULO", "VEICULO", "REDE"]):
+            score = 0
+            if "NOME FANTASIA" in combinado: score += 5
+            if "EMISSORA" in combinado: score += 4
+            if "VEÍCULO" in combinado or "VEICULO" in combinado: score += 3
+            if "REDE" in combinado: score += 2
+            if "ID" in combinado: score -= 4
+            if "TOTAL" in combinado or "VALOR" in combinado: score -= 3
+            mapa["CANDIDATOS_NOME"].append((score, idx, combinado))
 
-        # Regra 1: Se tem "DESC", é Desconto (ganha de tudo)
-        if tem_desc and not tem_reapl:
-             mapa['DESCONTO'] = idx
-        # Regra 2: Se tem "PUP" mas NÃO tem "REAPL", é Desconto (caso o nome seja só % PUP)
-        elif tem_pup and not tem_reapl and 'DESCONTO' not in mapa:
-             mapa['DESCONTO'] = idx
+        if "PROGRAMA" in combinado and "HORÁRIO" not in combinado and "HORARIO" not in combinado:
+            mapa["PROGRAMA"] = idx
 
-        # Horários
-        if "HORÁRIO" in r1 or "FAIXA HORÁRIA" in r1 or "FAIXA" in r1:
-            if "INICIAL" in r2 or "INÍCIO" in r2: mapa['HORA_INI'] = idx
-            if "FINAL" in r2 or "TÉRMINO" in r2: mapa['HORA_FIM'] = idx
-        
-        # Valores
-        if ("VALOR" in r1 or "CUSTO" in r1) and "TABELA" in r1:
-            if "UNITÁRIO" in r2 or "UNIT" in r2 or "30" in r2: mapa['VALOR_TABELA'] = idx
-        if "UNITÁRIO" in r2 and 'VALOR_TABELA' not in mapa: mapa['VALOR_TABELA'] = idx
+        if "FORMATO" in combinado or "PEÇA" in combinado or "PECA" in combinado:
+            if "VALOR" not in combinado and "CUSTO" not in combinado:
+                mapa["FORMATO"] = idx
 
-        # Município
-        if ("CÓD" in r1 or "COD" in r1) and ("MUN" in r1 or "IBGE" in r1): mapa['COD_MUNICIPIO'] = idx
+        # Inserções totais.
+        termos_ins = ["TT. INS", "TT.INS", "TT INS", "TOTAL INSERÇÕES", "TOTAL INSERCOES", "QTD.", "QUANTIDADE"]
+        eh_coluna_ins = any(t in combinado for t in termos_ins)
+        eh_ins_isolado = bool(re.search(r"(^|\s)INS\.?($|\s)", combinado))
+        nao_eh_valor = "VALOR" not in combinado and "CUSTO" not in combinado and "TABELA" not in combinado
+        if (eh_coluna_ins or eh_ins_isolado) and nao_eh_valor:
+            mapa["INSERCOES"] = idx
 
-        # Grid Dias
-        if r3.isdigit():
-            dia = int(r3)
+        # Desconto: prioriza colunas percentuais.
+        # IMPORTANTE: não usar "VALOR NEGOCIADO" como desconto; isso é valor em R$.
+        tem_desc = any(t in combinado for t in ["DESC", "DESCONTO", "% NEG", "%NEG", "PERCENTUAL NEG"])
+        tem_pup = "PUP" in combinado
+        tem_reapl = "REAPL" in combinado or "REAPLIC" in combinado
+        eh_valor_monetario = "VALOR" in combinado or "CUSTO" in combinado or "R$" in combinado
+        if tem_desc and not tem_reapl and not eh_valor_monetario:
+            mapa["DESCONTO"] = idx
+        elif tem_pup and not tem_reapl and not eh_valor_monetario and "DESCONTO" not in mapa:
+            mapa["DESCONTO"] = idx
+
+        # Horários.
+        if any(t in r1 for t in ["HORÁRIO", "HORARIO", "FAIXA HORÁRIA", "FAIXA HORARIA", "FAIXA"]):
+            if any(t in r2 for t in ["INICIAL", "INÍCIO", "INICIO"]):
+                mapa["HORA_INI"] = idx
+            if any(t in r2 for t in ["FINAL", "TÉRMINO", "TERMINO"]):
+                mapa["HORA_FIM"] = idx
+
+        # Valor de tabela unitário.
+        # IMPORTANTE: não sobrescrever com VALOR NEGOCIADO / DESEMBOLSO.
+        eh_valor_tabela = "TABELA" in combinado and ("VALOR" in combinado or "CUSTO" in combinado)
+        eh_unitario = any(t in combinado for t in ["UNITÁRIO", "UNITARIO", "UNIT"])
+        if eh_valor_tabela and eh_unitario:
+            mapa["VALOR_TABELA"] = idx
+        elif eh_valor_tabela and "VALOR_TABELA" not in mapa:
+            mapa["VALOR_TABELA"] = idx
+
+        # Município / IBGE.
+        if any(t in combinado for t in ["CÓD", "COD", "IBGE"]) and any(t in combinado for t in ["MUN", "MUNIC"]):
+            mapa["COD_MUNICIPIO"] = idx
+
+        # Grid de dias. Normalmente o dia está na terceira linha do cabeçalho.
+        dia_txt = r3.strip()
+        if re.fullmatch(r"\d{1,2}", dia_txt) and mes_atual:
+            dia = int(dia_txt)
             if 1 <= dia <= 31:
-                ano = ANO_CAMPANHA
-                if mes_atual == 1: ano = ANO_CAMPANHA + 1
-                mapa['DIAS'].append({'idx': idx, 'dia': dia, 'mes': mes_atual, 'ano': ano})
+                mapa["DIAS"].append({"idx": idx, "dia": dia, "mes": mes_atual, "ano": ano_atual})
+
+    if mapa["CANDIDATOS_NOME"]:
+        mapa["CANDIDATOS_NOME"].sort(reverse=True)
+        mapa["NOME"] = mapa["CANDIDATOS_NOME"][0][1]
 
     return mapa
 
-def formatar_valor_br(valor, eh_porcentagem=False):
-    if pd.isna(valor) or str(valor).strip() == '': return "0,00000000000000"
-    try:
-        val_str = str(valor).replace('R$', '').replace(' ', '')
-        if '.' in val_str and ',' in val_str: val_str = val_str.replace('.', '').replace(',', '.')
-        
-        val_float = float(val_str)
-        
-        # Se for porcentagem e vier em decimal (ex: 0.75), converte para 75.00
-        # Aumentei a tolerância para pegar casos como 1.0 (100%)
-        if eh_porcentagem and val_float <= 1.0 and val_float > 0:
-            val_float = val_float * 100
-            
-        val_float = round(val_float, 2)
-        return f"{val_float:.14f}".replace('.', ',')
-    except:
-        return "0,00000000000000"
+# -------------------------
+# Datas / inserções
+# -------------------------
 
-def formatar_horario(valor):
-    if pd.isna(valor) or str(valor).strip() in ['-', 'nan', '']: return ""
-    if hasattr(valor, 'strftime'): return valor.strftime('%H:%M')
-    if isinstance(valor, (float, int)):
-        if valor < 1: 
-            segundos = int(valor * 24 * 3600)
-            return (datetime(1900, 1, 1) + timedelta(seconds=segundos)).strftime('%H:%M')
-    valor = str(valor).strip()
-    match = re.search(r'(\d{1,2}:\d{2})', valor)
-    if match: 
-        h = match.group(1)
-        return f"0{h}" if len(h) == 4 else h
-    return ""
-
-def formatar_data_obj(dt):
-    return dt.strftime('%d/%m/%Y')
-
-def processar_datas_grid(row, lista_dias):
+def ler_datas_grid(row, lista_dias):
     datas_validas = []
+    total_insercoes_grid = 0
+
     for info in lista_dias:
-        col_idx = info['idx']
-        val = row[col_idx]
-        tem_insercao = False
+        col_idx = info["idx"]
         try:
-            val_str = str(val).strip()
-            if pd.notna(val) and val_str not in ['', '-', 'nan', 'None', '0', '0.0']:
-                tem_insercao = True
-        except: pass
-        if tem_insercao:
-            datas_validas.append(datetime(info['ano'], info['mes'], info['dia']))
-    if not datas_validas: return "", ""
+            val = row[col_idx]
+        except Exception:
+            continue
+
+        if eh_vazio(val):
+            continue
+
+        n = numero_float(val)
+        if n is None:
+            # Qualquer marca textual não vazia conta como 1 inserção.
+            qtd = 1
+        else:
+            qtd = int(round(n)) if n > 0 else 0
+
+        if qtd > 0:
+            datas_validas.append(datetime(info["ano"], info["mes"], info["dia"]))
+            total_insercoes_grid += qtd
+
     datas_validas.sort()
-    return formatar_data_obj(datas_validas[0]), formatar_data_obj(datas_validas[-1])
+    return datas_validas, total_insercoes_grid
+
+
+def obter_insercoes(row, mapa, total_grid):
+    # Preferência: coluna total INS, quando confiável.
+    if "INSERCOES" in mapa:
+        n = numero_float(row[mapa["INSERCOES"]])
+        if n is not None and n > 0:
+            return int(round(n))
+    return int(total_grid or 0)
+
+# -------------------------
+# Normalização de uma linha
+# -------------------------
+
+def detectar_tipo_midia(nome_aba, df):
+    nome_upper = texto_upper(nome_aba)
+    sample = ""
+    try:
+        sample = df.head(20).astype(str).to_string().upper()
+    except Exception:
+        pass
+
+    if "PROGRAMAÇÃO - RÁDIO" in sample or "PROGRAMAÇÃO - RADIO" in sample:
+        return "RADIO"
+    if "PROGRAMAÇÃO - TELEVISÃO" in sample or "PROGRAMAÇÃO - TV" in sample:
+        return "TV"
+
+    if any(t in nome_upper for t in ["RADIO", "RÁDIO", " RD ", "RD "]):
+        return "RADIO"
+    if any(t in nome_upper for t in ["TV", "TELEVISÃO", "TELEVISAO", "CNN", "REDE VIDA"]):
+        return "TV"
+    return None
+
+
+def extrair_registro(tipo_midia, row, mapa):
+    if "ID_VEICULO" not in mapa:
+        return None
+    if eh_linha_descartavel(row):
+        return None
+
+    id_veiculo = normalizar_id(row[mapa["ID_VEICULO"]])
+    if not id_veiculo:
+        return None
+
+    datas, total_grid = ler_datas_grid(row, mapa.get("DIAS", []))
+    insercoes = obter_insercoes(row, mapa, total_grid)
+    if insercoes <= 0:
+        return None
+
+    nome = texto_celula(row, mapa.get("NOME"), "")
+    programa = texto_celula(row, mapa.get("PROGRAMA"), "ROTATIVO") or "ROTATIVO"
+    if texto_upper(programa).startswith(("TOTAL", "SUBTOTAL", "OBS")):
+        return None
+
+    hora_ini = formatar_horario(row[mapa["HORA_INI"]]) if "HORA_INI" in mapa else ""
+    hora_fim = formatar_horario(row[mapa["HORA_FIM"]]) if "HORA_FIM" in mapa else ""
+    if not hora_fim and "HORA_INI" in mapa:
+        try:
+            hora_fim = formatar_horario(row[mapa["HORA_INI"] + 1])
+        except Exception:
+            pass
+    if not hora_ini and tipo_midia == "RADIO":
+        hora_ini = "06:00"
+    if not hora_fim:
+        hora_fim = hora_ini
+
+    desconto = formatar_valor_br(row[mapa["DESCONTO"]], eh_porcentagem=True, vazio_se_invalido=True) if "DESCONTO" in mapa else ""
+    # Sem fallback 74 fixo. Quando a planilha não trouxer desconto, deixa zero para evidenciar problema.
+    if not desconto:
+        desconto = "0,00000000000000"
+
+    valor_tabela = formatar_valor_br(row[mapa["VALOR_TABELA"]]) if "VALOR_TABELA" in mapa else "0,00000000000000"
+
+    formato = "30" if tipo_midia == "TV" else ""
+    if "FORMATO" in mapa:
+        val_fmt = texto_celula(row, mapa["FORMATO"]).replace('"', "").strip().upper()
+        fmt_num = numero_float(val_fmt)
+        if fmt_num is not None and fmt_num > 0:
+            formato = str(int(fmt_num))
+        elif tipo_midia == "TV" and val_fmt in ["A", "30", "30S", "30 SEG", "30'"]:
+            formato = "30"
+        elif tipo_midia == "TV" and val_fmt in ["B", "15", "15S", "15 SEG", "15'"]:
+            formato = "15"
+        elif val_fmt:
+            formato = val_fmt
+
+    cod_municipio = normalizar_codigo_municipio(row[mapa["COD_MUNICIPIO"]]) if "COD_MUNICIPIO" in mapa else ""
+
+    return {
+        "tipo_midia": tipo_midia,
+        "id_veiculo": id_veiculo,
+        "nome": nome,
+        "datas": datas,
+        "programa": programa,
+        "hora_ini": hora_ini,
+        "hora_fim": hora_fim,
+        "desconto": desconto,
+        "insercoes": insercoes,
+        "formato": formato,
+        "valor_tabela": valor_tabela,
+        "cod_municipio": cod_municipio,
+    }
+
+# -------------------------
+# Agrupamento
+# -------------------------
+
+def chave_agrupamento(reg):
+    # Mantém campos que impactam valor/regras; soma apenas registros equivalentes.
+    return (
+        reg["tipo_midia"], reg["id_veiculo"], reg["nome"], reg["programa"],
+        reg["hora_ini"], reg["hora_fim"], reg["desconto"], reg["formato"],
+        reg["valor_tabela"], reg["cod_municipio"]
+    )
+
+
+def agrupar_registros(registros):
+    grupos = OrderedDict()
+    for reg in registros:
+        key = chave_agrupamento(reg)
+        if key not in grupos:
+            grupos[key] = dict(reg)
+            grupos[key]["datas"] = list(reg.get("datas", []))
+        else:
+            grupos[key]["insercoes"] += reg.get("insercoes", 0)
+            grupos[key]["datas"].extend(reg.get("datas", []))
+    return list(grupos.values())
+
+# -------------------------
+# XML
+# -------------------------
 
 def criar_tag(pai, nome, valor):
     elem = ET.SubElement(pai, nome)
     elem.text = limpar_texto_agressivo(valor)
 
-def gerar_conteudo_xml(tipo_midia, dados_consolidados):
+
+def datas_inicio_fim(datas):
+    datas = sorted([d for d in datas if isinstance(d, datetime)])
+    if not datas:
+        return "", ""
+    return formatar_data_obj(datas[0]), formatar_data_obj(datas[-1])
+
+
+def gerar_conteudo_xml(tipo_midia, registros, agrupar=True):
+    if agrupar:
+        registros = agrupar_registros(registros)
+
     root = ET.Element("documento")
     id_counter = 1
-    
-    for row_data in dados_consolidados:
-        mapa = row_data['mapa']
-        row = row_data['linha']
-        
-        if 'ID_VEICULO' not in mapa: continue
-        id_veic_raw = str(row[mapa['ID_VEICULO']])
-        if not id_veic_raw.replace('.','').replace(',','').isdigit(): continue
-        
+
+    for reg in registros:
         veiculacao = ET.SubElement(root, "veiculacao", id=str(id_counter))
-        
-        id_veiculo = str(int(float(id_veic_raw)))
-        data_ini, data_fim = processar_datas_grid(row, mapa['DIAS'])
-        if not data_ini: data_ini = ""; data_fim = ""
-
-        nome = str(row[mapa['NOME']]) if 'NOME' in mapa else ""
-        programa = str(row[mapa['PROGRAMA']]).strip() if 'PROGRAMA' in mapa else "ROTATIVO"
-        if tipo_midia == 'RADIO' and 'PROGRAMA' not in mapa: programa = "ROTATIVO"
-
-        hora_ini = formatar_horario(row[mapa['HORA_INI']]) if 'HORA_INI' in mapa else "06:00"
-        hora_fim = formatar_horario(row[mapa['HORA_FIM']]) if 'HORA_FIM' in mapa else ""
-        if hora_ini and not hora_fim and 'HORA_INI' in mapa:
-            try: hora_fim = formatar_horario(row[mapa['HORA_INI'] + 1])
-            except: pass
-        if not hora_fim: hora_fim = hora_ini
-
-        insercoes = "0"
-        if 'INSERCOES' in mapa:
-            try: 
-                val_ins = row[mapa['INSERCOES']]
-                if pd.notna(val_ins): insercoes = str(int(float(val_ins)))
-            except: insercoes = "0"
-
-        valor = "0,00000000000000"
-        if 'VALOR_TABELA' in mapa:
-            valor = formatar_valor_br(row[mapa['VALOR_TABELA']])
-            
-        desconto = "0,00000000000000"
-        if 'DESCONTO' in mapa:
-            desconto = formatar_valor_br(row[mapa['DESCONTO']], eh_porcentagem=True)
-        elif tipo_midia == 'TV':
-            desconto = "74,00000000000000"
-            
-        formato = "30"
-        if 'FORMATO' in mapa:
-            val_fmt = str(row[mapa['FORMATO']]).replace('"', '').strip()
-            if val_fmt.isdigit(): formato = val_fmt
-
-        cod_municipio = ""
-        if 'COD_MUNICIPIO' in mapa:
-            try:
-                val_mun = str(row[mapa['COD_MUNICIPIO']]).replace('.0', '').strip()
-                if val_mun and val_mun.lower() not in ['nan', 'none', '', '-']:
-                    cod_municipio = val_mun
-            except: pass
+        data_ini, data_fim = datas_inicio_fim(reg.get("datas", []))
 
         criar_tag(veiculacao, "IdentificadorVeiculacaoSistemaOrigem", id_counter)
         criar_tag(veiculacao, "TipoInformacao", "Planejado")
         criar_tag(veiculacao, "IdentificadorVeiculacao", "")
-        criar_tag(veiculacao, "IdentificadorVeiculo", id_veiculo)
-        
-        if tipo_midia == 'RADIO': criar_tag(veiculacao, "IdNegociacao", "")
-            
-        criar_tag(veiculacao, "Nome", nome)
+        criar_tag(veiculacao, "IdentificadorVeiculo", reg["id_veiculo"])
+
+        if tipo_midia == "RADIO":
+            criar_tag(veiculacao, "IdNegociacao", "")
+
+        criar_tag(veiculacao, "Nome", reg.get("nome", ""))
         criar_tag(veiculacao, "DataInicioDaVeiculacao", data_ini)
         criar_tag(veiculacao, "DataFimDaVeiculacao", data_fim)
-        criar_tag(veiculacao, "Programa", programa)
-        criar_tag(veiculacao, "FaixaHorariaInicial", hora_ini)
-        criar_tag(veiculacao, "FaixaHorariaFinal", hora_fim)
-        
-        if tipo_midia == 'TV':
+        criar_tag(veiculacao, "Programa", reg.get("programa", "ROTATIVO"))
+        criar_tag(veiculacao, "FaixaHorariaInicial", reg.get("hora_ini", ""))
+        criar_tag(veiculacao, "FaixaHorariaFinal", reg.get("hora_fim", ""))
+
+        if tipo_midia == "TV":
             criar_tag(veiculacao, "Bonificacao", "nao")
-            criar_tag(veiculacao, "DescontoNegociado", desconto)
-            criar_tag(veiculacao, "QuantidadeDeInsercoes", insercoes)
-            criar_tag(veiculacao, "FormatoTV", formato) 
-            criar_tag(veiculacao, "CustoDeTabelaFormato", valor)
-        elif tipo_midia == 'RADIO':
-            criar_tag(veiculacao, "Formato", formato)
-            criar_tag(veiculacao, "CustoDoFormato", valor)
+            criar_tag(veiculacao, "DescontoNegociado", reg.get("desconto", "0,00000000000000"))
+            criar_tag(veiculacao, "QuantidadeDeInsercoes", reg.get("insercoes", 0))
+            criar_tag(veiculacao, "FormatoTV", reg.get("formato", "30"))
+            criar_tag(veiculacao, "CustoDeTabelaFormato", reg.get("valor_tabela", "0,00000000000000"))
+        elif tipo_midia == "RADIO":
+            criar_tag(veiculacao, "Formato", reg.get("formato", ""))
+            criar_tag(veiculacao, "CustoDoFormato", reg.get("valor_tabela", "0,00000000000000"))
             criar_tag(veiculacao, "Reaplicacao", "nao")
             criar_tag(veiculacao, "Bonificacao", "nao")
-            criar_tag(veiculacao, "DescontoNegociado", desconto) 
-            criar_tag(veiculacao, "QuantidadeDeInsercoes", insercoes)
+            criar_tag(veiculacao, "DescontoNegociado", reg.get("desconto", "0,00000000000000"))
+            criar_tag(veiculacao, "QuantidadeDeInsercoes", reg.get("insercoes", 0))
             criar_tag(veiculacao, "TipoDeCompra", "ROTATIVO/INDETERMINADO")
 
         criar_tag(veiculacao, "Cotacao", "")
         criar_tag(veiculacao, "IR", "")
         criar_tag(veiculacao, "IOF", "")
         criar_tag(veiculacao, "OutrosCustos", "")
-        
+
+        cod_municipio = reg.get("cod_municipio", "")
         if cod_municipio:
             criar_tag(veiculacao, "PaisesParaVeiculacao", "")
             criar_tag(veiculacao, "EstadosParaVeiculacao", "")
@@ -265,95 +533,118 @@ def gerar_conteudo_xml(tipo_midia, dados_consolidados):
         criar_tag(veiculacao, "PercentualRepasseAoOrgaoDescontoAgencia", "27,50")
         criar_tag(veiculacao, "Abatimento", "")
         criar_tag(veiculacao, "Justificativa", "")
-        
+
         id_counter += 1
 
     ET.indent(root, space="  ", level=0)
-    
-    xml_str = ET.tostring(root, encoding='unicode', method='xml')
-    if not xml_str.startswith('<?xml'):
-        header = '<?xml version="1.0" encoding="ISO-8859-1"?>\n'
-        xml_str = header + xml_str
-    xml_final_str = re.sub(r'<([a-zA-Z0-9_]+) />', r'<\1></\1>', xml_str)
-    return xml_final_str.encode('ISO-8859-1', errors='xmlcharrefreplace')
+    xml_str = ET.tostring(root, encoding="unicode", method="xml")
+    xml_str = '<?xml version="1.0" encoding="ISO-8859-1"?>\n' + xml_str
+    xml_str = re.sub(r"<([a-zA-Z0-9_]+) />", r"<\1></\1>", xml_str)
+    return xml_str.encode("ISO-8859-1", errors="xmlcharrefreplace")
 
-# --- INTERFACE ---
+# -------------------------
+# Processamento completo
+# -------------------------
 
-st.set_page_config(page_title="Gerador XML V19", page_icon="📡")
+def processar_planilha(uploaded_file, ano_campanha):
+    xls = pd.read_excel(uploaded_file, sheet_name=None, header=None)
+    registros_radio = []
+    registros_tv = []
+    diagnostico = []
 
-st.title("Gerador de XML - V19 (Desc. Corrigido)")
-st.markdown("Arraste a planilha **MS - CAMPANHA...xlsx**.")
+    for nome_aba, df in xls.items():
+        linha_inicio = encontrar_inicio_triplo(df)
+        if linha_inicio is None:
+            continue
 
-uploaded_file = st.file_uploader("Upload da Planilha Excel", type=['xlsx'])
+        tipo = detectar_tipo_midia(nome_aba, df)
+        if tipo not in ["RADIO", "TV"]:
+            continue
+
+        mapa = mapear_colunas_triplas(df, linha_inicio, ano_campanha)
+        faltantes = [campo for campo in ["ID_VEICULO", "DIAS"] if campo not in mapa or not mapa.get(campo)]
+        qtd_validos = 0
+
+        for row_idx in range(linha_inicio + 3, len(df)):
+            row = df.iloc[row_idx].values
+            reg = extrair_registro(tipo, row, mapa)
+            if reg is None:
+                continue
+            qtd_validos += 1
+            if tipo == "RADIO":
+                registros_radio.append(reg)
+            elif tipo == "TV":
+                registros_tv.append(reg)
+
+        diagnostico.append({
+            "Aba": nome_aba,
+            "Tipo": tipo,
+            "Linha cabeçalho": linha_inicio + 1,
+            "Registros válidos": qtd_validos,
+            "Colunas detectadas": ", ".join(k for k in mapa.keys() if k != "CANDIDATOS_NOME"),
+            "Alertas": ", ".join(faltantes) if faltantes else "",
+        })
+
+    return registros_radio, registros_tv, pd.DataFrame(diagnostico)
+
+# -------------------------
+# Interface Streamlit
+# -------------------------
+
+st.set_page_config(page_title="Gerador XML V20", page_icon="📡", layout="wide")
+
+st.title("Gerador de XML - V20")
+st.markdown("Arraste a planilha **MS - CAMPANHA...xlsx** para gerar XML de TV e Rádio no padrão das planilhas oficiais.")
+
+col_cfg1, col_cfg2 = st.columns([1, 2])
+with col_cfg1:
+    ano_campanha = st.number_input("Ano base da campanha", min_value=2020, max_value=2035, value=2026, step=1)
+with col_cfg2:
+    agrupar = st.checkbox("Agrupar veiculações equivalentes", value=True, help="Agrupa por veículo, nome, programa, horário, formato, valor, desconto e praça; soma inserções e expande data início/fim.")
+
+uploaded_file = st.file_uploader("Upload da Planilha Excel", type=["xlsx"])
 
 if uploaded_file is not None:
-    st.info("Processando... Por favor aguarde.")
-    
     try:
-        xls = pd.read_excel(uploaded_file, sheet_name=None, header=None)
-        
-        dados_radio = []
-        dados_tv = []
-        
-        progress_bar = st.progress(0)
-        total_sheets = len(xls)
-        
-        for i, (nome_aba, df) in enumerate(xls.items()):
-            linha_inicio = encontrar_inicio_triplo(df)
-            
-            if linha_inicio is not None:
-                tipo_detectado = None
-                try:
-                    sample = df.head(20).astype(str).to_string().upper()
-                    if "PROGRAMAÇÃO - RÁDIO" in sample or "PROGRAMAÇÃO - RADIO" in sample:
-                        tipo_detectado = 'RADIO'
-                    elif "PROGRAMAÇÃO - TELEVISÃO" in sample or "PROGRAMAÇÃO - TV" in sample:
-                        tipo_detectado = 'TV'
-                except: pass
+        with st.spinner("Processando planilha..."):
+            registros_radio, registros_tv, diagnostico = processar_planilha(uploaded_file, int(ano_campanha))
 
-                nome_upper = nome_aba.upper()
-                eh_radio = (tipo_detectado == 'RADIO') or ("RADIO" in nome_upper or "RÁDIO" in nome_upper or "RD " in nome_upper or "RD" in nome_upper)
-                eh_tv = (tipo_detectado == 'TV') or ("TV" in nome_upper or "TELEVISÃO" in nome_upper or "CNN" in nome_upper or "REDE VIDA" in nome_upper)
-                
-                if eh_radio or eh_tv:
-                    mapa_cols = mapear_colunas_triplas(df, linha_inicio)
-                    
-                    for row_idx in range(linha_inicio + 3, len(df)):
-                        row = df.iloc[row_idx].values
-                        dados_brutos = {'mapa': mapa_cols, 'linha': row}
-                        
-                        if eh_radio: dados_radio.append(dados_brutos)
-                        elif eh_tv: dados_tv.append(dados_brutos)
-            
-            progress_bar.progress((i + 1) / total_sheets)
-            
-        st.success("Análise concluída!")
-        
+        st.success("Análise concluída.")
+
+        if not diagnostico.empty:
+            st.subheader("Diagnóstico de abas")
+            st.dataframe(diagnostico, use_container_width=True)
+
         col1, col2 = st.columns(2)
-        
-        if dados_radio:
-            st.write(f"✅ Rádio: {len(dados_radio)} veiculações")
-            xml_radio = gerar_conteudo_xml('RADIO', dados_radio)
-            col1.download_button(
-                label="📻 Baixar XML Rádio",
-                data=xml_radio,
-                file_name="Radio_V19.xml",
-                mime="application/xml"
-            )
-        else:
-            col1.warning("Nenhum dado de Rádio encontrado.")
 
-        if dados_tv:
-            st.write(f"✅ TV: {len(dados_tv)} veiculações")
-            xml_tv = gerar_conteudo_xml('TV', dados_tv)
-            col2.download_button(
-                label="📺 Baixar XML TV",
-                data=xml_tv,
-                file_name="TV_V19.xml",
-                mime="application/xml"
-            )
-        else:
-            col2.warning("Nenhum dado de TV encontrado.")
-            
+        with col1:
+            if registros_radio:
+                qtd_final = len(agrupar_registros(registros_radio)) if agrupar else len(registros_radio)
+                st.write(f"✅ Rádio: {len(registros_radio)} linhas válidas → {qtd_final} veiculações no XML")
+                xml_radio = gerar_conteudo_xml("RADIO", registros_radio, agrupar=agrupar)
+                st.download_button(
+                    label="📻 Baixar XML Rádio V20",
+                    data=xml_radio,
+                    file_name="Radio_V20.xml",
+                    mime="application/xml",
+                )
+            else:
+                st.warning("Nenhum dado de Rádio encontrado.")
+
+        with col2:
+            if registros_tv:
+                qtd_final = len(agrupar_registros(registros_tv)) if agrupar else len(registros_tv)
+                st.write(f"✅ TV: {len(registros_tv)} linhas válidas → {qtd_final} veiculações no XML")
+                xml_tv = gerar_conteudo_xml("TV", registros_tv, agrupar=agrupar)
+                st.download_button(
+                    label="📺 Baixar XML TV V20",
+                    data=xml_tv,
+                    file_name="TV_V20.xml",
+                    mime="application/xml",
+                )
+            else:
+                st.warning("Nenhum dado de TV encontrado.")
+
     except Exception as e:
         st.error(f"Ocorreu um erro: {e}")
+        st.exception(e)

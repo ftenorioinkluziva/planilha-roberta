@@ -7,13 +7,12 @@ import re
 import unicodedata
 
 # =========================================================
-# GERADOR XML V20
-# - Mantém a ideia do V19, mas separa extração -> normalização -> agrupamento -> XML.
-# - Corrige desconto fixo de TV.
-# - Melhora detecção de Nome/Emissora.
-# - Calcula inserções pelo grid quando possível.
-# - Filtra linhas de total/observação/inválidas.
-# - Agrupa veiculações equivalentes, somando inserções e expandindo período.
+# GERADOR XML V21
+# - V21: replica o preenchimento humano da PlanilhaPadrao.
+# - 1 linha válida da CALIA = 1 <veiculacao>. Não agrupa.
+# - DataInicio/DataFim vêm do período global da aba: primeira e última inserção no grid da aba.
+# - QuantidadeDeInsercoes continua vindo da coluna INS quando existir; senão, soma o grid da linha.
+# - Horário vazio em TV vira 00:00 a 00:00.
 # =========================================================
 
 MESES = {
@@ -166,12 +165,24 @@ def normalizar_id(valor):
         return ""
 
 
-def normalizar_codigo_municipio(valor):
+def normalizar_codigo_territorio(valor):
     if eh_vazio(valor):
         return ""
-    s = str(valor).strip().replace(".0", "")
-    s = re.sub(r"\D", "", s)
-    return s
+    s = limpar_texto_agressivo(valor).strip().upper().replace(".0", "")
+    if re.fullmatch(r"[A-Z]{2,3}", s):
+        return s
+    return re.sub(r"\D", "", s)
+
+
+def campos_territorio_xml(codigo_territorio):
+    codigo = normalizar_codigo_territorio(codigo_territorio)
+    if re.fullmatch(r"[A-Z]{3}", codigo):
+        return codigo, "", ""
+    if re.fullmatch(r"[A-Z]{2}", codigo):
+        return "", codigo, ""
+    if codigo:
+        return "", "", codigo
+    return "BRA", "", ""
 
 # -------------------------
 # Cabeçalhos / mapeamento
@@ -245,6 +256,9 @@ def mapear_colunas_triplas(df, linha_inicio, ano_campanha):
             if "VALOR" not in combinado and "CUSTO" not in combinado:
                 mapa["FORMATO"] = idx
 
+        if any(t in combinado for t in ["SECUNDAGEM", "DURAÇÃO", "DURACAO"]):
+            mapa["SECUNDAGEM"] = idx
+
         # Inserções totais.
         termos_ins = ["TT. INS", "TT.INS", "TT INS", "TOTAL INSERÇÕES", "TOTAL INSERCOES", "QTD.", "QUANTIDADE"]
         eh_coluna_ins = any(t in combinado for t in termos_ins)
@@ -281,7 +295,7 @@ def mapear_colunas_triplas(df, linha_inicio, ano_campanha):
             mapa["VALOR_TABELA"] = idx
 
         # Município / IBGE.
-        if any(t in combinado for t in ["CÓD", "COD", "IBGE"]) and any(t in combinado for t in ["MUN", "MUNIC"]):
+        if any(t in combinado for t in ["CÓD", "COD", "IBGE"]) and any(t in combinado for t in ["MUN", "MÚN", "MUNIC"]):
             mapa["COD_MUNICIPIO"] = idx
 
         # Grid de dias. Normalmente o dia está na terceira linha do cabeçalho.
@@ -362,7 +376,70 @@ def detectar_tipo_midia(nome_aba, df):
     return None
 
 
-def extrair_registro(tipo_midia, row, mapa):
+def detectar_periodo_global_aba(df, linha_inicio, mapa):
+    """
+    Regra V21: DataInicio/DataFim são por aba, não por linha.
+    O período global da aba é a primeira e a última data que possuem qualquer inserção
+    em linhas válidas daquela aba.
+    """
+    todas_datas = []
+    for row_idx in range(linha_inicio + 3, len(df)):
+        row = df.iloc[row_idx].values
+        if "ID_VEICULO" not in mapa or eh_linha_descartavel(row):
+            continue
+        id_veiculo = normalizar_id(row[mapa["ID_VEICULO"]])
+        if not id_veiculo:
+            continue
+        datas_linha, total_grid = ler_datas_grid(row, mapa.get("DIAS", []))
+        insercoes = obter_insercoes(row, mapa, total_grid)
+        if insercoes <= 0:
+            continue
+        todas_datas.extend(datas_linha)
+    todas_datas = sorted([d for d in todas_datas if isinstance(d, datetime)])
+    if not todas_datas:
+        return []
+    return [todas_datas[0], todas_datas[-1]]
+
+
+def normalizar_formato(valor, tipo_midia):
+    formato = "30" if tipo_midia == "TV" else ""
+    val_fmt = limpar_texto_agressivo(valor).replace('"', "").strip().upper()
+    if not val_fmt:
+        return formato
+
+    fmt_num = numero_float(val_fmt)
+    if fmt_num is not None and fmt_num > 0:
+        return str(int(fmt_num))
+
+    # Exemplos comuns: PEÇA A, PECA A, A, 30S, 15''.
+    if tipo_midia == "TV":
+        if re.search(r"(^|\s)A($|\s)", val_fmt) or "30" in val_fmt:
+            return "30"
+        if re.search(r"(^|\s)B($|\s)", val_fmt) or "15" in val_fmt:
+            return "15"
+    return val_fmt
+
+
+def obter_formato_tv(row, mapa, nome_aba=""):
+    if "SECUNDAGEM" in mapa:
+        formato_seg = normalizar_formato(row[mapa["SECUNDAGEM"]], "TV")
+        if formato_seg:
+            return formato_seg
+
+    formato = "30"
+    if "FORMATO" in mapa:
+        formato = normalizar_formato(row[mapa["FORMATO"]], "TV")
+
+    if formato == "15":
+        nome_aba_upper = texto_upper(nome_aba)
+        if any(t in nome_aba_upper for t in ["PROJETO", "FECHADA"]):
+            return "60"
+        return "30"
+
+    return formato
+
+
+def extrair_registro(tipo_midia, row, mapa, periodo_global=None, nome_aba=""):
     if "ID_VEICULO" not in mapa:
         return None
     if eh_linha_descartavel(row):
@@ -372,7 +449,7 @@ def extrair_registro(tipo_midia, row, mapa):
     if not id_veiculo:
         return None
 
-    datas, total_grid = ler_datas_grid(row, mapa.get("DIAS", []))
+    datas_linha, total_grid = ler_datas_grid(row, mapa.get("DIAS", []))
     insercoes = obter_insercoes(row, mapa, total_grid)
     if insercoes <= 0:
         return None
@@ -389,38 +466,42 @@ def extrair_registro(tipo_midia, row, mapa):
             hora_fim = formatar_horario(row[mapa["HORA_INI"] + 1])
         except Exception:
             pass
+
+    # Regra confirmada: em TV, horário vazio vira 00:00 a 00:00.
+    if tipo_midia == "TV" and not hora_ini:
+        hora_ini = "00:00"
+    if tipo_midia == "TV" and not hora_fim:
+        hora_fim = "00:00"
+
+    # Rádio mantém fallback antigo, quando não houver horário inicial.
     if not hora_ini and tipo_midia == "RADIO":
         hora_ini = "06:00"
     if not hora_fim:
         hora_fim = hora_ini
 
     desconto = formatar_valor_br(row[mapa["DESCONTO"]], eh_porcentagem=True, vazio_se_invalido=True) if "DESCONTO" in mapa else ""
-    # Sem fallback 74 fixo. Quando a planilha não trouxer desconto, deixa zero para evidenciar problema.
     if not desconto:
         desconto = "0,00000000000000"
 
     valor_tabela = formatar_valor_br(row[mapa["VALOR_TABELA"]]) if "VALOR_TABELA" in mapa else "0,00000000000000"
 
-    formato = "30" if tipo_midia == "TV" else ""
-    if "FORMATO" in mapa:
-        val_fmt = texto_celula(row, mapa["FORMATO"]).replace('"', "").strip().upper()
-        fmt_num = numero_float(val_fmt)
-        if fmt_num is not None and fmt_num > 0:
-            formato = str(int(fmt_num))
-        elif tipo_midia == "TV" and val_fmt in ["A", "30", "30S", "30 SEG", "30'"]:
-            formato = "30"
-        elif tipo_midia == "TV" and val_fmt in ["B", "15", "15S", "15 SEG", "15'"]:
-            formato = "15"
-        elif val_fmt:
-            formato = val_fmt
+    if tipo_midia == "TV":
+        formato = obter_formato_tv(row, mapa, nome_aba=nome_aba)
+    else:
+        formato = ""
+        if "FORMATO" in mapa:
+            formato = normalizar_formato(row[mapa["FORMATO"]], tipo_midia)
 
-    cod_municipio = normalizar_codigo_municipio(row[mapa["COD_MUNICIPIO"]]) if "COD_MUNICIPIO" in mapa else ""
+    cod_municipio = normalizar_codigo_territorio(row[mapa["COD_MUNICIPIO"]]) if "COD_MUNICIPIO" in mapa else ""
+
+    # Datas finais do XML: período global da aba. Fallback para linha se a aba não tiver grid detectado.
+    datas_xml = list(periodo_global or []) or datas_linha
 
     return {
         "tipo_midia": tipo_midia,
         "id_veiculo": id_veiculo,
         "nome": nome,
-        "datas": datas,
+        "datas": datas_xml,
         "programa": programa,
         "hora_ini": hora_ini,
         "hora_fim": hora_fim,
@@ -518,15 +599,10 @@ def gerar_conteudo_xml(tipo_midia, registros, agrupar=True):
         criar_tag(veiculacao, "IOF", "")
         criar_tag(veiculacao, "OutrosCustos", "")
 
-        cod_municipio = reg.get("cod_municipio", "")
-        if cod_municipio:
-            criar_tag(veiculacao, "PaisesParaVeiculacao", "")
-            criar_tag(veiculacao, "EstadosParaVeiculacao", "")
-            criar_tag(veiculacao, "MunicipiosParaVeiculacao", cod_municipio)
-        else:
-            criar_tag(veiculacao, "PaisesParaVeiculacao", "BRA")
-            criar_tag(veiculacao, "EstadosParaVeiculacao", "")
-            criar_tag(veiculacao, "MunicipiosParaVeiculacao", "")
+        pais, estado, municipio = campos_territorio_xml(reg.get("cod_municipio", ""))
+        criar_tag(veiculacao, "PaisesParaVeiculacao", pais)
+        criar_tag(veiculacao, "EstadosParaVeiculacao", estado)
+        criar_tag(veiculacao, "MunicipiosParaVeiculacao", municipio)
 
         criar_tag(veiculacao, "CNPJAgenciaResponsavel", "")
         criar_tag(veiculacao, "PercentualDescontoAgencia", "20,00")
@@ -563,11 +639,15 @@ def processar_planilha(uploaded_file, ano_campanha):
 
         mapa = mapear_colunas_triplas(df, linha_inicio, ano_campanha)
         faltantes = [campo for campo in ["ID_VEICULO", "DIAS"] if campo not in mapa or not mapa.get(campo)]
+        periodo_global = detectar_periodo_global_aba(df, linha_inicio, mapa)
+        periodo_txt = ""
+        if periodo_global:
+            periodo_txt = f"{formatar_data_obj(periodo_global[0])} a {formatar_data_obj(periodo_global[-1])}"
         qtd_validos = 0
 
         for row_idx in range(linha_inicio + 3, len(df)):
             row = df.iloc[row_idx].values
-            reg = extrair_registro(tipo, row, mapa)
+            reg = extrair_registro(tipo, row, mapa, periodo_global=periodo_global, nome_aba=nome_aba)
             if reg is None:
                 continue
             qtd_validos += 1
@@ -580,6 +660,7 @@ def processar_planilha(uploaded_file, ano_campanha):
             "Aba": nome_aba,
             "Tipo": tipo,
             "Linha cabeçalho": linha_inicio + 1,
+            "Período global da aba": periodo_txt,
             "Registros válidos": qtd_validos,
             "Colunas detectadas": ", ".join(k for k in mapa.keys() if k != "CANDIDATOS_NOME"),
             "Alertas": ", ".join(faltantes) if faltantes else "",
@@ -591,16 +672,13 @@ def processar_planilha(uploaded_file, ano_campanha):
 # Interface Streamlit
 # -------------------------
 
-st.set_page_config(page_title="Gerador XML V20", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Gerador XML V21", page_icon="📡", layout="wide")
 
-st.title("Gerador de XML - V20")
+st.title("Gerador de XML - V21")
 st.markdown("Arraste a planilha **MS - CAMPANHA...xlsx** para gerar XML de TV e Rádio no padrão das planilhas oficiais.")
 
-col_cfg1, col_cfg2 = st.columns([1, 2])
-with col_cfg1:
-    ano_campanha = st.number_input("Ano base da campanha", min_value=2020, max_value=2035, value=2026, step=1)
-with col_cfg2:
-    agrupar = st.checkbox("Agrupar veiculações equivalentes", value=True, help="Agrupa por veículo, nome, programa, horário, formato, valor, desconto e praça; soma inserções e expande data início/fim.")
+ano_campanha = st.number_input("Ano base da campanha", min_value=2020, max_value=2035, value=2026, step=1)
+st.info("Regra V21: 1 linha válida = 1 veiculação. Datas são globais por aba, calculadas pela primeira e última inserção do grid da aba.")
 
 uploaded_file = st.file_uploader("Upload da Planilha Excel", type=["xlsx"])
 
@@ -619,13 +697,12 @@ if uploaded_file is not None:
 
         with col1:
             if registros_radio:
-                qtd_final = len(agrupar_registros(registros_radio)) if agrupar else len(registros_radio)
-                st.write(f"✅ Rádio: {len(registros_radio)} linhas válidas → {qtd_final} veiculações no XML")
-                xml_radio = gerar_conteudo_xml("RADIO", registros_radio, agrupar=agrupar)
+                st.write(f"✅ Rádio: {len(registros_radio)} linhas válidas → {len(registros_radio)} veiculações no XML")
+                xml_radio = gerar_conteudo_xml("RADIO", registros_radio, agrupar=False)
                 st.download_button(
-                    label="📻 Baixar XML Rádio V20",
+                    label="📻 Baixar XML Rádio V21",
                     data=xml_radio,
-                    file_name="Radio_V20.xml",
+                    file_name="Radio_V21.xml",
                     mime="application/xml",
                 )
             else:
@@ -633,13 +710,12 @@ if uploaded_file is not None:
 
         with col2:
             if registros_tv:
-                qtd_final = len(agrupar_registros(registros_tv)) if agrupar else len(registros_tv)
-                st.write(f"✅ TV: {len(registros_tv)} linhas válidas → {qtd_final} veiculações no XML")
-                xml_tv = gerar_conteudo_xml("TV", registros_tv, agrupar=agrupar)
+                st.write(f"✅ TV: {len(registros_tv)} linhas válidas → {len(registros_tv)} veiculações no XML")
+                xml_tv = gerar_conteudo_xml("TV", registros_tv, agrupar=False)
                 st.download_button(
-                    label="📺 Baixar XML TV V20",
+                    label="📺 Baixar XML TV V21",
                     data=xml_tv,
-                    file_name="TV_V20.xml",
+                    file_name="TV_V21.xml",
                     mime="application/xml",
                 )
             else:

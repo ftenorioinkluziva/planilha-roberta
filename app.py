@@ -215,7 +215,7 @@ def detectar_mes(texto):
 
 def mapear_colunas_triplas(df, linha_inicio, ano_campanha):
     row1, row2, row3 = carregar_linhas_cabecalho(df, linha_inicio)
-    mapa = {"DIAS": [], "CANDIDATOS_NOME": []}
+    mapa = {"DIAS": [], "CANDIDATOS_NOME": [], "VALOR_TABELA_FORMATOS": {}}
 
     last_r1 = ""
     mes_atual = None
@@ -228,6 +228,7 @@ def mapear_colunas_triplas(df, linha_inicio, ano_campanha):
         r2 = row2[idx]
         r3 = row3[idx]
         combinado = f"{r1} {r2} {r3}".strip()
+        combinado_direto = f"{row1[idx]} {r2} {r3}".strip()
 
         mes_detectado = detectar_mes(r1) or detectar_mes(r2)
         if mes_detectado:
@@ -235,45 +236,45 @@ def mapear_colunas_triplas(df, linha_inicio, ano_campanha):
             # Em campanhas que cruzam dez/jan, janeiro pertence ao ano seguinte.
             ano_atual = ano_campanha + 1 if mes_atual == 1 and ano_campanha and mes_atual < 3 else ano_campanha
 
-        if "ID SECOM" in combinado or "ID. SECOM" in combinado:
+        if "ID SECOM" in combinado_direto or "ID. SECOM" in combinado_direto:
             mapa["ID_VEICULO"] = idx
 
         # Nome: guarda candidatos em ordem de qualidade; no fim escolhe o melhor.
-        if any(t in combinado for t in ["NOME FANTASIA", "EMISSORA", "VEÍCULO", "VEICULO", "REDE"]):
+        if any(t in combinado_direto for t in ["NOME FANTASIA", "EMISSORA", "VEÍCULO", "VEICULO", "REDE"]):
             score = 0
-            if "NOME FANTASIA" in combinado: score += 5
-            if "EMISSORA" in combinado: score += 4
-            if "VEÍCULO" in combinado or "VEICULO" in combinado: score += 3
-            if "REDE" in combinado: score += 2
-            if "ID" in combinado: score -= 4
-            if "TOTAL" in combinado or "VALOR" in combinado: score -= 3
-            mapa["CANDIDATOS_NOME"].append((score, idx, combinado))
+            if "NOME FANTASIA" in combinado_direto: score += 5
+            if "EMISSORA" in combinado_direto: score += 4
+            if "VEÍCULO" in combinado_direto or "VEICULO" in combinado_direto: score += 3
+            if "REDE" in combinado_direto: score += 2
+            if "ID" in combinado_direto: score -= 4
+            if "TOTAL" in combinado_direto or "VALOR" in combinado_direto: score -= 3
+            mapa["CANDIDATOS_NOME"].append((score, idx, combinado_direto))
 
-        if "PROGRAMA" in combinado and "HORÁRIO" not in combinado and "HORARIO" not in combinado:
+        if "PROGRAMA" in combinado_direto and "HORÁRIO" not in combinado_direto and "HORARIO" not in combinado_direto:
             mapa["PROGRAMA"] = idx
 
-        if "FORMATO" in combinado or "PEÇA" in combinado or "PECA" in combinado:
-            if "VALOR" not in combinado and "CUSTO" not in combinado:
+        if "FORMATO" in combinado_direto or "PEÇA" in combinado_direto or "PECA" in combinado_direto:
+            if "VALOR" not in combinado_direto and "CUSTO" not in combinado_direto:
                 mapa["FORMATO"] = idx
 
-        if any(t in combinado for t in ["SECUNDAGEM", "DURAÇÃO", "DURACAO"]):
+        if any(t in combinado_direto for t in ["SECUNDAGEM", "DURAÇÃO", "DURACAO"]):
             mapa["SECUNDAGEM"] = idx
 
         # Inserções totais.
         termos_ins = ["TT. INS", "TT.INS", "TT INS", "TOTAL INSERÇÕES", "TOTAL INSERCOES", "QTD.", "QUANTIDADE"]
-        eh_coluna_ins = any(t in combinado for t in termos_ins)
-        eh_ins_isolado = bool(re.search(r"(^|\s)INS\.?($|\s)", combinado))
-        nao_eh_valor = "VALOR" not in combinado and "CUSTO" not in combinado and "TABELA" not in combinado
+        eh_coluna_ins = any(t in combinado_direto for t in termos_ins)
+        eh_ins_isolado = bool(re.search(r"(^|\s)INS\.?($|\s)", combinado_direto))
+        nao_eh_valor = "VALOR" not in combinado_direto and "CUSTO" not in combinado_direto and "TABELA" not in combinado_direto
         if (eh_coluna_ins or eh_ins_isolado) and nao_eh_valor:
             mapa["INSERCOES"] = idx
 
         # Desconto: prioriza colunas percentuais.
         # IMPORTANTE: não usar "VALOR NEGOCIADO" como desconto; isso é valor em R$.
-        tem_desc = any(t in combinado for t in ["DESC", "DESCONTO", "% NEG", "%NEG", "PERCENTUAL NEG"])
-        tem_pup = "PUP" in combinado
-        tem_reapl = "REAPL" in combinado or "REAPLIC" in combinado
-        eh_valor_monetario = "VALOR" in combinado or "CUSTO" in combinado or "R$" in combinado
-        if tem_desc and not tem_reapl and not eh_valor_monetario:
+        tem_desc = any(t in combinado_direto for t in ["DESC", "DESCONTO", "% NEG", "%NEG", "PERCENTUAL NEG"])
+        tem_pup = "PUP" in combinado_direto
+        tem_reapl = "REAPL" in combinado_direto or "REAPLIC" in combinado_direto
+        eh_valor_monetario = "VALOR" in combinado_direto or "CUSTO" in combinado_direto or "R$" in combinado_direto
+        if tem_desc and not tem_reapl and not eh_valor_monetario and "DESCONTO" not in mapa:
             mapa["DESCONTO"] = idx
         elif tem_pup and not tem_reapl and not eh_valor_monetario and "DESCONTO" not in mapa:
             mapa["DESCONTO"] = idx
@@ -282,7 +283,7 @@ def mapear_colunas_triplas(df, linha_inicio, ano_campanha):
         if any(t in r1 for t in ["HORÁRIO", "HORARIO", "FAIXA HORÁRIA", "FAIXA HORARIA", "FAIXA"]):
             if any(t in r2 for t in ["INICIAL", "INÍCIO", "INICIO"]):
                 mapa["HORA_INI"] = idx
-            if any(t in r2 for t in ["FINAL", "TÉRMINO", "TERMINO"]):
+            if any(t in r2 for t in ["FINAL", "FIM", "TÉRMINO", "TERMINO"]):
                 mapa["HORA_FIM"] = idx
 
         # Valor de tabela unitário.
@@ -291,11 +292,14 @@ def mapear_colunas_triplas(df, linha_inicio, ano_campanha):
         eh_unitario = any(t in combinado for t in ["UNITÁRIO", "UNITARIO", "UNIT"])
         if eh_valor_tabela and eh_unitario:
             mapa["VALOR_TABELA"] = idx
+            formato_unitario = re.search(r"\b(5|10|15|30|60|90)\b", combinado)
+            if formato_unitario:
+                mapa["VALOR_TABELA_FORMATOS"][formato_unitario.group(1)] = idx
         elif eh_valor_tabela and "VALOR_TABELA" not in mapa:
             mapa["VALOR_TABELA"] = idx
 
         # Município / IBGE.
-        if any(t in combinado for t in ["CÓD", "COD", "IBGE"]) and any(t in combinado for t in ["MUN", "MÚN", "MUNIC"]):
+        if any(t in combinado_direto for t in ["CÓD", "COD", "IBGE"]) and any(t in combinado_direto for t in ["MUN", "MÚN", "MUNIC"]):
             mapa["COD_MUNICIPIO"] = idx
 
         # Grid de dias. Normalmente o dia está na terceira linha do cabeçalho.
@@ -411,6 +415,10 @@ def normalizar_formato(valor, tipo_midia):
     if fmt_num is not None and fmt_num > 0:
         return str(int(fmt_num))
 
+    fmt_match = re.search(r"\d+", val_fmt)
+    if fmt_match:
+        return str(int(fmt_match.group(0)))
+
     # Exemplos comuns: PEÇA A, PECA A, A, 30S, 15''.
     if tipo_midia == "TV":
         if re.search(r"(^|\s)A($|\s)", val_fmt) or "30" in val_fmt:
@@ -437,6 +445,15 @@ def obter_formato_tv(row, mapa, nome_aba=""):
         return "30"
 
     return formato
+
+
+def obter_valor_tabela(row, mapa, formato):
+    formatos = mapa.get("VALOR_TABELA_FORMATOS", {})
+    if formato in formatos:
+        return formatar_valor_br(row[formatos[formato]])
+    if "VALOR_TABELA" in mapa:
+        return formatar_valor_br(row[mapa["VALOR_TABELA"]])
+    return "0,00000000000000"
 
 
 def extrair_registro(tipo_midia, row, mapa, periodo_global=None, nome_aba=""):
@@ -483,14 +500,17 @@ def extrair_registro(tipo_midia, row, mapa, periodo_global=None, nome_aba=""):
     if not desconto:
         desconto = "0,00000000000000"
 
-    valor_tabela = formatar_valor_br(row[mapa["VALOR_TABELA"]]) if "VALOR_TABELA" in mapa else "0,00000000000000"
-
     if tipo_midia == "TV":
         formato = obter_formato_tv(row, mapa, nome_aba=nome_aba)
     else:
         formato = ""
         if "FORMATO" in mapa:
             formato = normalizar_formato(row[mapa["FORMATO"]], tipo_midia)
+
+    if tipo_midia == "RADIO" and texto_upper(formato) in ["ONLINE", "A DEFINIR"]:
+        return None
+
+    valor_tabela = obter_valor_tabela(row, mapa, formato)
 
     cod_municipio = normalizar_codigo_territorio(row[mapa["COD_MUNICIPIO"]]) if "COD_MUNICIPIO" in mapa else ""
 
@@ -510,6 +530,7 @@ def extrair_registro(tipo_midia, row, mapa, periodo_global=None, nome_aba=""):
         "formato": formato,
         "valor_tabela": valor_tabela,
         "cod_municipio": cod_municipio,
+        "tipo_compra": "TESTEMUNHAL" if tipo_midia == "RADIO" and "TEST" in texto_upper(nome_aba) else "DETERMINADO",
     }
 
 # -------------------------
@@ -575,7 +596,7 @@ def gerar_conteudo_xml(tipo_midia, registros, agrupar=True):
         criar_tag(veiculacao, "Nome", reg.get("nome", ""))
         criar_tag(veiculacao, "DataInicioDaVeiculacao", data_ini)
         criar_tag(veiculacao, "DataFimDaVeiculacao", data_fim)
-        criar_tag(veiculacao, "Programa", reg.get("programa", "ROTATIVO"))
+        criar_tag(veiculacao, "Programa", "ROTATIVO" if tipo_midia == "RADIO" else reg.get("programa", "ROTATIVO"))
         criar_tag(veiculacao, "FaixaHorariaInicial", reg.get("hora_ini", ""))
         criar_tag(veiculacao, "FaixaHorariaFinal", reg.get("hora_fim", ""))
 
@@ -589,10 +610,11 @@ def gerar_conteudo_xml(tipo_midia, registros, agrupar=True):
             criar_tag(veiculacao, "Formato", reg.get("formato", ""))
             criar_tag(veiculacao, "CustoDoFormato", reg.get("valor_tabela", "0,00000000000000"))
             criar_tag(veiculacao, "Reaplicacao", "nao")
-            criar_tag(veiculacao, "Bonificacao", "nao")
-            criar_tag(veiculacao, "DescontoNegociado", reg.get("desconto", "0,00000000000000"))
+            desconto_radio = reg.get("desconto", "0,00000000000000")
+            criar_tag(veiculacao, "Bonificacao", "sim" if numero_float(desconto_radio) == 100 else "nao")
+            criar_tag(veiculacao, "DescontoNegociado", desconto_radio)
             criar_tag(veiculacao, "QuantidadeDeInsercoes", reg.get("insercoes", 0))
-            criar_tag(veiculacao, "TipoDeCompra", "ROTATIVO/INDETERMINADO")
+            criar_tag(veiculacao, "TipoDeCompra", reg.get("tipo_compra", "DETERMINADO"))
 
         criar_tag(veiculacao, "Cotacao", "")
         criar_tag(veiculacao, "IR", "")
@@ -635,6 +657,8 @@ def processar_planilha(uploaded_file, ano_campanha):
 
         tipo = detectar_tipo_midia(nome_aba, df)
         if tipo not in ["RADIO", "TV"]:
+            continue
+        if tipo == "RADIO" and "CONTRA PARTIDA" in texto_upper(nome_aba):
             continue
 
         mapa = mapear_colunas_triplas(df, linha_inicio, ano_campanha)

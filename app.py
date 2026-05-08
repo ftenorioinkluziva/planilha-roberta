@@ -118,7 +118,7 @@ def numero_float(valor):
         return None
 
 
-def formatar_valor_br(valor, eh_porcentagem=False, vazio_se_invalido=False):
+def formatar_valor_br(valor, eh_porcentagem=False, vazio_se_invalido=False, casas_decimais=14):
     val_float = numero_float(valor)
     if val_float is None:
         return "" if vazio_se_invalido else "0,00000000000000"
@@ -127,7 +127,7 @@ def formatar_valor_br(valor, eh_porcentagem=False, vazio_se_invalido=False):
         val_float *= 100
 
     val_float = round(val_float, 2)
-    return f"{val_float:.14f}".replace(".", ",")
+    return f"{val_float:.{casas_decimais}f}".replace(".", ",")
 
 
 def formatar_horario(valor):
@@ -447,12 +447,12 @@ def obter_formato_tv(row, mapa, nome_aba=""):
     return formato
 
 
-def obter_valor_tabela(row, mapa, formato):
+def obter_valor_tabela(row, mapa, formato, casas_decimais=14):
     formatos = mapa.get("VALOR_TABELA_FORMATOS", {})
     if formato in formatos:
-        return formatar_valor_br(row[formatos[formato]])
+        return formatar_valor_br(row[formatos[formato]], casas_decimais=casas_decimais)
     if "VALOR_TABELA" in mapa:
-        return formatar_valor_br(row[mapa["VALOR_TABELA"]])
+        return formatar_valor_br(row[mapa["VALOR_TABELA"]], casas_decimais=casas_decimais)
     return "0,00000000000000"
 
 
@@ -510,7 +510,7 @@ def extrair_registro(tipo_midia, row, mapa, periodo_global=None, nome_aba=""):
     if tipo_midia == "RADIO" and texto_upper(formato) in ["ONLINE", "A DEFINIR"]:
         return None
 
-    valor_tabela = obter_valor_tabela(row, mapa, formato)
+    valor_tabela = obter_valor_tabela(row, mapa, formato, casas_decimais=2 if tipo_midia == "RADIO" else 14)
 
     cod_municipio = normalizar_codigo_territorio(row[mapa["COD_MUNICIPIO"]]) if "COD_MUNICIPIO" in mapa else ""
 

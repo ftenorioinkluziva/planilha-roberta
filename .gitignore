@@ -114,6 +114,11 @@ dmypy.json
 .vscode/
 .idea/
 
+# Local project data / generated outputs
+outputs/
+node_modules/
+.temp_xlrd/
+
 # OS
 .DS_Store
 Thumbs.db

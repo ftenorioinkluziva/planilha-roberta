@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<documento>
+  <veiculacao id='1'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>1</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>11153</IdentificadorVeiculo>
+    <Nome>AMERICAN SAT</Nome>
+    <DataInicioDaVeiculacao>1/06/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>22/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>48,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>468,86000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>132</QuantidadeDeInsercoes>
+    <Formato>60</Formato>
+    <TipoMidiaExterior>CARRO DE SOM</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao>BRA</PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao></MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20,00</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,50</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='2'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>2</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>11153</IdentificadorVeiculo>
+    <Nome>AMERICAN SAT</Nome>
+    <DataInicioDaVeiculacao>1/06/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>22/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>48,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>468,86000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>132</QuantidadeDeInsercoes>
+    <Formato>60</Formato>
+    <TipoMidiaExterior>CARRO DE SOM</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao>BRA</PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao></MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='3'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>3</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>11153</IdentificadorVeiculo>
+    <Nome>AMERICAN SAT</Nome>
+    <DataInicioDaVeiculacao>1/06/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>22/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>48,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>468,86000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>132</QuantidadeDeInsercoes>
+    <Formato>60</Formato>
+    <TipoMidiaExterior>CARRO DE SOM</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao>BRA</PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao></MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='4'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>4</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>11153</IdentificadorVeiculo>
+    <Nome>AMERICAN SAT</Nome>
+    <DataInicioDaVeiculacao>1/06/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>22/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>48,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>468,86000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>132</QuantidadeDeInsercoes>
+    <Formato>60</Formato>
+    <TipoMidiaExterior>CARRO DE SOM</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao>BRA</PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao></MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='5'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>5</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>11153</IdentificadorVeiculo>
+    <Nome>AMERICAN SAT</Nome>
+    <DataInicioDaVeiculacao>1/06/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>22/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>48,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>468,86000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>132</QuantidadeDeInsercoes>
+    <Formato>60</Formato>
+    <TipoMidiaExterior>CARRO DE SOM</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao>BRA</PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao></MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='6'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>6</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>11153</IdentificadorVeiculo>
+    <Nome>AMERICAN SAT</Nome>
+    <DataInicioDaVeiculacao>1/06/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>22/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>48,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>468,86000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>132</QuantidadeDeInsercoes>
+    <Formato>60</Formato>
+    <TipoMidiaExterior>CARRO DE SOM</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao>BRA</PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao></MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='7'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>7</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>52278</IdentificadorVeiculo>
+    <Nome>VEX</Nome>
+    <DataInicioDaVeiculacao>14/05/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>12/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>30,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>34650,00000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>1</QuantidadeDeInsercoes>
+    <Formato>PAINEL DE RODOVIA</Formato>
+    <TipoMidiaExterior>MIDIA EM RODOVIA</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao></PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao>4108304</MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='8'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>8</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>52278</IdentificadorVeiculo>
+    <Nome>VEX</Nome>
+    <DataInicioDaVeiculacao>14/05/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>12/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>15,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>34650,00000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>1</QuantidadeDeInsercoes>
+    <Formato>PAINEL DE RODOVIA</Formato>
+    <TipoMidiaExterior>MIDIA EM RODOVIA</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao></PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao>3548708</MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='9'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>9</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>52278</IdentificadorVeiculo>
+    <Nome>VEX</Nome>
+    <DataInicioDaVeiculacao>14/05/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>12/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>15,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>34650,00000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>1</QuantidadeDeInsercoes>
+    <Formato>PAINEL DE RODOVIA</Formato>
+    <TipoMidiaExterior>MIDIA EM RODOVIA</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao></PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao>3552403</MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+  <veiculacao id='10'>
+    <IdentificadorVeiculacaoSistemaOrigem></IdentificadorVeiculacaoSistemaOrigem>
+    <TipoInformacao>Planejado</TipoInformacao>
+    <IdentificadorVeiculacao>10</IdentificadorVeiculacao>
+    <IdentificadorVeiculo>52278</IdentificadorVeiculo>
+    <Nome>VEX</Nome>
+    <DataInicioDaVeiculacao>14/05/2026</DataInicioDaVeiculacao>
+    <DataFimDaVeiculacao>12/06/2026</DataFimDaVeiculacao>
+    <Bonificacao>nao</Bonificacao>
+    <DescontoNegociado>15,00000000000000</DescontoNegociado>
+    <ImpactoPorInsercaoEstimado></ImpactoPorInsercaoEstimado>
+    <ValorUnitarioDeTabela>34650,00000000000000</ValorUnitarioDeTabela>
+    <QuantidadeDeInsercoes>1</QuantidadeDeInsercoes>
+    <Formato>PAINEL DE RODOVIA</Formato>
+    <TipoMidiaExterior>MIDIA EM RODOVIA</TipoMidiaExterior>
+    <Cotacao></Cotacao>
+    <IR></IR>
+    <IOF></IOF>
+    <OutrosCustos></OutrosCustos>
+    <PaisesParaVeiculacao></PaisesParaVeiculacao>
+    <EstadosParaVeiculacao></EstadosParaVeiculacao>
+    <MunicipiosParaVeiculacao>3523107</MunicipiosParaVeiculacao>
+    <CNPJAgenciaResponsavel></CNPJAgenciaResponsavel>
+    <PercentualDescontoAgencia>20</PercentualDescontoAgencia>
+    <PercentualRepasseAoOrgaoDescontoAgencia>27,5</PercentualRepasseAoOrgaoDescontoAgencia>
+    <Abatimento></Abatimento>
+    <Justificativa></Justificativa>
+  </veiculacao>
+</documento>

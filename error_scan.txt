@@ -1,0 +1,67 @@
+{"kind":"match","sheet":"RESUMO -ME","address":"B11","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B12","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B13","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B15","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B16","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B18","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B19","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B21","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B23","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B24","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B25","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B26","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"RESUMO -ME","address":"B27","value":"#VALUE!","formula":null,"match":"value"}
+{"kind":"match","sheet":"DOOH - METRÔ","address":"AB22","value":"#DIV/0!","formula":"V22/(Z22)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - METRÔ","address":"AC22","value":"#DIV/0!","formula":"V22/(Z22)","match":"value"}
+{"kind":"match","sheet":"DOOH - METRÔ","address":"AB23","value":"#DIV/0!","formula":"SUBTOTAL(9,AB22:AB22)","match":"value"}
+{"kind":"match","sheet":"DOOH - METRÔ","address":"AB24","value":"#DIV/0!","formula":"SUBTOTAL(9,AB18:AB23)","match":"value"}
+{"kind":"match","sheet":"DOOH - METRÔ","address":"I32","value":"#DIV/0!","formula":null,"match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA11","value":"#REF!","formula":"W11/(Z11+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB11","value":"#REF!","formula":"W11/(Z11+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC11","value":"#REF!","formula":"1-(W11/((T11+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB12","value":"#REF!","formula":"SUBTOTAL(9,AB11:AB11)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA13","value":"#REF!","formula":"W13/(Z13+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB13","value":"#REF!","formula":"W13/(Z13+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC13","value":"#REF!","formula":"1-(W13/((T13+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB14","value":"#REF!","formula":"SUBTOTAL(9,AB13:AB13)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA15","value":"#REF!","formula":"W15/(Z15+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB15","value":"#REF!","formula":"W15/(Z15+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC15","value":"#REF!","formula":"1-(W15/((T15+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB16","value":"#REF!","formula":"SUBTOTAL(9,AB15:AB15)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA17","value":"#REF!","formula":"W17/(Z17+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB17","value":"#REF!","formula":"W17/(Z17+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC17","value":"#REF!","formula":"1-(W17/((T17+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB18","value":"#REF!","formula":"SUBTOTAL(9,AB17:AB17)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA19","value":"#REF!","formula":"W19/(Z19+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB19","value":"#REF!","formula":"W19/(Z19+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC19","value":"#REF!","formula":"1-(W19/((T19+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB20","value":"#REF!","formula":"SUBTOTAL(9,AB19:AB19)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA21","value":"#REF!","formula":"W21/(Z21+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB21","value":"#REF!","formula":"W21/(Z21+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC21","value":"#REF!","formula":"1-(W21/((T21+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB22","value":"#REF!","formula":"SUBTOTAL(9,AB21:AB21)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA23","value":"#REF!","formula":"W23/(Z23+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB23","value":"#REF!","formula":"W23/(Z23+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC23","value":"#REF!","formula":"1-(W23/((T23+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB24","value":"#REF!","formula":"SUBTOTAL(9,AB23:AB23)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA25","value":"#REF!","formula":"W25/(Z25+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB25","value":"#REF!","formula":"W25/(Z25+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC25","value":"#REF!","formula":"1-(W25/((T25+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB26","value":"#REF!","formula":"SUBTOTAL(9,AB25:AB25)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AA27","value":"#REF!","formula":"W27/(Z27+#REF!)","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB27","value":"#REF!","formula":"W27/(Z27+#REF!)*1000","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AC27","value":"#REF!","formula":"1-(W27/((T27+#REF!)))","match":"value"}
+{"kind":"match","sheet":"DOOH - ESTABELECIMENTOS","address":"AB28","value":"#REF!","formula":"SUBTOTAL(9,AB27:AB27)","match":"value"}
+{"kind":"match","sheet":"DOOH - PAINEL","address":"AC30","value":"#DIV/0!","formula":"AVERAGE(AC27:AC29)*1.5","match":"value"}
+{"kind":"match","sheet":"DOOH - PAINEL","address":"AC33","value":"#DIV/0!","formula":"AVERAGE(AC31:AC32)*1.5","match":"value"}
+{"kind":"match","sheet":"INTERNET","address":"B28","value":"#REF!","formula":"\"TOTAL \"&#REF!","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA CARRO SOM","address":"B4","value":"#REF!","formula":"#REF!","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA CARRO SOM","address":"B5","value":"#REF!","formula":"#REF!","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA CARRO SOM","address":"B6","value":"#REF!","formula":"#REF!","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA CARRO SOM","address":"M8","value":"#REF!","formula":"SUM(#REF!)","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA CARRO SOM","address":"O8","value":"#REF!","formula":"SUM(#REF!)","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA CARRO SOM","address":"R8","value":"#REF!","formula":"SUBTOTAL(9,#REF!)","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA CARRO SOM","address":"S8","value":"#REF!","formula":"R8*0.95","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA RÁDIO COM.","address":"B4","value":"#REF!","formula":"#REF!","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA RÁDIO COM.","address":"B5","value":"#REF!","formula":"#REF!","match":"value"}
+{"kind":"match","sheet":"CONTRA PARTIDA RÁDIO COM.","address":"B6","value":"#REF!","formula":"#REF!","match":"value"}
